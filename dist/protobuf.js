@@ -1,6 +1,6 @@
 /*!
  * protobuf.js v6.8.8 (c) 2016, daniel wirtz
- * compiled thu, 19 jul 2018 00:33:25 utc
+ * compiled fri, 05 apr 2019 00:42:26 utc
  * licensed under the bsd-3-clause license
  * see: https://github.com/dcodeio/protobuf.js for details
  */
@@ -1544,6 +1544,15 @@ function genValuePartial_fromObject(gen, field, fieldIndex, prop) {
                     ("break");
             } gen
             ("}");
+        } else if(field.resolvedType.name === "Timestamp") {
+            //Custom handler for Timestamp as a string
+            gen
+            ("if(typeof d%s!==\"string\")", prop)
+                ("throw TypeError(%j)", field.fullName + ": string expected")
+            ("var dt = Date.parse(d%s)", prop)
+            ("m%s=types[%i].fromObject(d%s)", prop, fieldIndex, prop)
+            ("m%s.seconds=Math.floor(dt/1000)", prop)
+            ("m%s.nanos=(dt\%1000)*1000", prop);
         } else gen
             ("if(typeof d%s!==\"object\")", prop)
                 ("throw TypeError(%j)", field.fullName + ": object expected")
@@ -1669,6 +1678,8 @@ function genValuePartial_toObject(gen, field, fieldIndex, prop) {
     if (field.resolvedType) {
         if (field.resolvedType instanceof Enum) gen
             ("d%s=o.enums===String?types[%i].values[m%s]:m%s", prop, fieldIndex, prop, prop);
+        else if(field.resolvedType.name === "Timestamp") gen
+            ("d%s=new Date(m%s.seconds*1000+m%s.nanos/1000).toISOString()", prop, prop, prop);
         else gen
             ("d%s=types[%i].toObject(m%s,o)", prop, fieldIndex, prop);
     } else {
@@ -3213,7 +3224,7 @@ Namespace.arrayToJSON = arrayToJSON;
 Namespace.isReservedId = function isReservedId(reserved, id) {
     if (reserved)
         for (var i = 0; i < reserved.length; ++i)
-            if (typeof reserved[i] !== "string" && reserved[i][0] <= id && reserved[i][1] >= id)
+            if (typeof reserved[i] !== "string" && reserved[i][0] <= id && reserved[i][1] > id)
                 return true;
     return false;
 };
@@ -8175,6 +8186,23 @@ wrappers[".google.protobuf.Any"] = {
         return this.toObject(message, options);
     }
 };
+
+// Custom wrapper for Timestamp
+wrappers[".google.protobuf.Timestamp"] = {
+    fromObject: function(object) {
+        //Convert ISO-8601 to epoch millis
+        var dt = Date.parse(object);
+        return this.create({
+            seconds: Math.floor(dt/1000),
+            nanos: (dt % 1000) * 1000
+        })
+    },
+
+    toObject: function(message, options) {
+        return new Date(message.seconds*1000 + message.nanos/1000).toISOString();
+    }
+};
+
 
 },{"21":21}],42:[function(require,module,exports){
 "use strict";
